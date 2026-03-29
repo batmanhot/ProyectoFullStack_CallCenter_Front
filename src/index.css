@@ -18,3 +18,16 @@ body {
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
 }
+
+/* ── Shared form input class ── */
+.inp {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  outline: none;
+}
+.inp:focus {
+  box-shadow: 0 0 0 2px #3b82f6;
+}
