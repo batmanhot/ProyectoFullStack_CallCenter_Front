@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Activity, Bell, Box, CheckSquare, FileText, GraduationCap,
   LayoutDashboard, LogOut, MessageSquare, Phone, RotateCcw,
@@ -15,7 +15,8 @@ import DatabaseSecurity   from './features/admin/DatabaseSecurity';
 import CampaignManager    from './features/campaigns/CampaignManager';
 import MultichannelConfig from './features/channels/MultichannelConfig';
 import CRMView            from './features/clients/CRMView';
-import CallCenter         from './features/calls/CallCenter';         // Centro de Contactos completo
+import CallView           from './features/calls/CallView';          // ← extraído de App
+import CallConsole        from './features/calls/CallConsole';
 import FollowUpManager    from './features/followups/FollowUpManager';
 import OpportunityPipeline from './features/opportunities/OpportunityPipeline';
 import ProductManager     from './features/products/ProductManager';
@@ -66,11 +67,9 @@ const SEED_FOLLOWUPS = [
   { id:'FU-002', clientName:'Aceros Industriales',   agent:'Carlos Ruiz', date:'2026-03-30', time:'15:00', priority:'Media', channel:'WhatsApp', notes:'Esperan decisión de directorio.', status:'Pendiente', createdAt:'2026-03-27' },
 ];
 const SEED_CALL_HISTORY = [
-  { id:'INT-001', clientId:1, clientName:'Minera del Norte S.A.', contactName:'John Doe',   phone:'555-0101', channel:'telefono',  disposition:'interesado',    notes:'Muy interesado en planchas A4. Pide cotización para 50 toneladas.',  date:'2026-03-26', time:'10:30', duration:'15', agent:'Ana Garcia',  followUpDate:'',            timestamp:'2026-03-26T10:30:00' },
-  { id:'INT-002', clientId:1, clientName:'Minera del Norte S.A.', contactName:'John Doe',   phone:'555-0101', channel:'whatsapp',  disposition:'volver_llamar', notes:'En reunión, pide que llamen el jueves.',                           date:'2026-03-25', time:'14:10', duration:'3',  agent:'Ana Garcia',  followUpDate:'2026-03-28', timestamp:'2026-03-25T14:10:00' },
-  { id:'INT-003', clientId:2, clientName:'Aceros Industriales',   contactName:'Pedro Luis', phone:'555-0200', channel:'celular',   disposition:'solicita_cot',  notes:'Necesita 6 válvulas hidráulicas con urgencia. Entrega en 2 semanas.', date:'2026-03-27', time:'09:00', duration:'20', agent:'Carlos Ruiz', followUpDate:'',            timestamp:'2026-03-27T09:00:00' },
-  { id:'INT-004', clientId:3, clientName:'Válvulas del Sur S.A.C.',contactName:'Carmen Rios',phone:'555-0310', channel:'facebook',  disposition:'en_evaluacion', notes:'Vio publicación en Facebook. Evaluando presupuesto interno.',        date:'2026-03-27', time:'11:45', duration:'8',  agent:'Luis Torres', followUpDate:'2026-03-31', timestamp:'2026-03-27T11:45:00' },
-  { id:'INT-005', clientId:2, clientName:'Aceros Industriales',   contactName:'Pedro Luis', phone:'555-0200', channel:'email',     disposition:'no_contesta',   notes:'No responde correo enviado. Intentar por teléfono.',                date:'2026-03-28', time:'08:00', duration:'0',  agent:'Carlos Ruiz', followUpDate:'2026-03-29', timestamp:'2026-03-28T08:00:00' },
+  { companyName:'Minera del Norte S.A.', contactName:'John Doe',  phoneNumber:'555-0101', disposition:'CONTACTO_EFECTIVO',   duration:324, notes:'Muy interesado en planchas.', timestamp:'2026-03-26T10:30:00' },
+  { companyName:'Minera del Norte S.A.', contactName:'John Doe',  phoneNumber:'555-0101', disposition:'VOLVER_A_LLAMAR',     duration:87,  notes:'En reunión, pide rellamar.',  timestamp:'2026-03-25T14:10:00' },
+  { companyName:'Aceros Industriales',   contactName:'Pedro Luis', phoneNumber:'555-0200', disposition:'SOLICITA_COTIZACION', duration:512, notes:'Necesita 6 válvulas urgente.', timestamp:'2026-03-27T09:00:00' },
 ];
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -163,6 +162,7 @@ export default function App() {
   const [activeTab,    setActiveTab]    = useState('dashboard');
   const [showSearch,   setShowSearch]   = useState(false);
   const [notification, setNotification] = useState(null);
+  const [activeCall,   setActiveCall]   = useState(null);
   const [apiKey,       setApiKey]       = useState('');
 
   // ── Persistent state (localStorage) ──────────────────────────────────────
@@ -194,10 +194,11 @@ export default function App() {
     }, ...cur]);
   };
 
+  const timerRef = useRef(null);
   const notify = (type, text) => {
     setNotification({ type, text });
-    clearTimeout(window.__ccTimer);
-    window.__ccTimer = setTimeout(() => setNotification(null), 3500);
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setNotification(null), 3500);
   };
 
   const handleLogin  = user => { setCurrentUser(user); audit(`Inicio de sesión — ${user.role}`, user.id, 'Sistema'); };
@@ -292,27 +293,31 @@ export default function App() {
   const saveFollowUp     = fu => { setFollowUps(cur=>[...cur,fu]); audit('Follow-up programado',fu.clientName,'Follow-up'); notify('success','Follow-up programado.'); };
   const deleteFollowUp   = id => { setFollowUps(cur=>cur.filter(f=>f.id!==id)); audit('Follow-up eliminado',id,'Follow-up'); notify('success','Follow-up eliminado.'); };
   const completeFollowUp = id => { setFollowUps(cur=>cur.map(f=>f.id===id?{...f,status:'Completado'}:f)); audit('Follow-up completado',id,'Follow-up'); notify('success','Follow-up completado.'); };
-  const saveCall   = (data, isEdit=false) => {
-    setCallHistory(cur => {
-      if (isEdit) return cur.map(c => c.id === data.id ? data : c);
-      return [{ ...data, id: data.id || `INT-${Date.now()}` }, ...cur];
-    });
-    audit(`Contacto ${isEdit?'actualizado':'registrado'}: ${data.disposition?.replace(/_/g,' ')}`, data.clientName, 'Llamada');
-    notify('success', isEdit ? 'Contacto actualizado.' : 'Contacto registrado.');
-    // Auto follow-up si el estado lo requiere
-    if (!isEdit && data.followUpDate) {
-      setFollowUps(cur => [...cur, {
-        id: `FU-${Date.now()}`, clientName: data.clientName,
-        agent: data.agent || currentUser?.name || 'Agente',
-        date: data.followUpDate, time: '', priority: 'Media',
-        channel: data.channel === 'whatsapp' ? 'WhatsApp' : 'Llamada',
-        notes: data.notes || 'Seguimiento generado desde contacto.', status: 'Pendiente',
-        createdAt: new Date().toISOString().slice(0, 10),
-      }]);
-      audit('Follow-up automático generado', data.clientName, 'Follow-up');
+  const startCall  = contact => { setActiveCall(contact); audit('Llamada iniciada',contact.companyName,'Llamada'); notify('info',`Llamada — ${contact.contactName}`); };
+  const hangUp     = ()      => { setActiveCall(null); };
+  const saveCall   = data    => {
+    setActiveCall(null);
+    setCallHistory(cur => [{ ...data, id:`CALL-${Date.now()}` }, ...cur]);
+    audit(`Llamada tipificada: ${data.disposition?.replace(/_/g,' ')}`,data.companyName,'Llamada');
+
+    if (data.escalated) {
+      setClients(cur => cur.map(client => client.name === data.companyName ? { ...client, status: 'Escalado a Cierre' } : client));
+      audit('Cliente escalado',data.companyName,'Llamada');
+      notify('info','Cliente escalado para acción de cierre.');
+    } else {
+      notify('success','Llamada registrada.');
+    }
+
+    if (data.callStatus === 'closed_sale') {
+      audit('Venta cerrada desde llamada',data.companyName,'Llamada');
+      notify('success','Cliente marcado como Venta Cerrada.');
+    }
+
+    if (data.scheduleFollowUp?.date) {
+      setFollowUps(cur=>[...cur,{id:`FU-${Date.now()}`,clientName:data.companyName,agent:currentUser?.name||'Agente',date:data.scheduleFollowUp.date,time:'',priority:'Alta',channel:data.channel || 'Llamada',notes:data.notes||'Follow-up automático.',status:'Pendiente',createdAt:ts().slice(0,10)}]);
+      audit('Follow-up automático generado',data.companyName,'Follow-up');
     }
   };
-  const deleteCall = id => { setCallHistory(cur => cur.filter(c => c.id !== id)); audit('Contacto eliminado', id, 'Llamada', true); };
 
   // ── Render guard ──────────────────────────────────────────────────────────
   if (!currentUser) return <LoginScreen onLogin={handleLogin} />;
@@ -331,15 +336,8 @@ export default function App() {
       case 'campaigns':
         return <CampaignManager campaigns={campaigns} products={products} onSaveCampaign={saveCampaign} onToggleCampaign={toggleCampaign} onDeleteCampaign={deleteCampaign} />;
       case 'calls':
-        return <CallCenter
-          callHistory={callHistory}
-          clients={clients}
-          onSaveCall={saveCall}
-          onDeleteCall={deleteCall}
-          onNotify={notify}
-          onNavigate={tab => setActiveTab(tab)}
-          currentUser={currentUser}
-        />;
+        // Punto 1: CallView extraído — ya no es JSX inline aquí
+        return <CallView clients={clients} callHistory={callHistory} onStartCall={startCall} />;
       case 'followups':
         return <FollowUpManager followUps={followUps} clients={clients} onSave={saveFollowUp} onDelete={deleteFollowUp} onComplete={completeFollowUp} />;
       case 'opportunities':
@@ -496,6 +494,9 @@ export default function App() {
         <GlobalSearch clients={clients} quotes={quotes} products={products}
           onNavigate={tab => setActiveTab(tab)}
           onClose={() => setShowSearch(false)} />
+      )}
+      {activeCall && (
+        <CallConsole activeCall={activeCall} callHistory={callHistory} onHangUp={hangUp} onSave={saveCall} />
       )}
     </div>
   );

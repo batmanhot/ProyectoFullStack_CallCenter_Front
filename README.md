@@ -1,16 +1,63 @@
-# React + Vite
+# 📞 CALLSYS PRO
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Aplicación **WEB para Call Center de Ventas**, diseñada para optimizar la gestión de clientes, oportunidades y procesos de ventas en múltiples canales.  
+Construida con **React** y **TailwindCSS**, ofrece una interfaz moderna, ágil y adaptable.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🚀 Características principales
 
-## React Compiler
+- 📂 **Historial de llamadas**: Registro completo y trazable de interacciones.  
+- 🔄 **Control y seguimiento de ventas**: Monitoreo de todas las etapas en diversos canales.  
+- 👥 **Gestión de clientes**: Administración centralizada de información y contactos.  
+- 🎯 **Seguimiento de oportunidades**: Desde la prospección hasta el cierre.  
+- 💰 **Cotizaciones, cierres y aprobaciones**: Flujo comercial completo y transparente.  
+- 🔐 **Gestión de roles de seguridad**: Control de accesos y permisos por usuario.  
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+---
 
-## Expanding the ESLint configuration
+## 📸 Capturas de pantalla
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+> Inserta aquí tus capturas de pantalla para mostrar la interfaz y funcionalidades:  
+- ![Placeholder Screenshot 1](ruta/a/imagen1.png)  
+- ![Placeholder Screenshot 2](ruta/a/imagen2.png)  
+
+---
+
+## 🛠️ Tecnologías utilizadas
+
+- ⚛️ **React** – Librería para interfaces dinámicas.  
+- 🎨 **TailwindCSS** – Framework de estilos utilitarios para diseño moderno y responsivo.  
+
+---
+
+## 📋 Requisitos previos
+
+Antes de comenzar, asegúrate de tener instalado:
+
+- [Node.js](https://nodejs.org/) (versión recomendada: LTS)  
+- [npm](https://www.npmjs.com/) o [yarn](https://yarnpkg.com/)  
+
+---
+
+## ⚙️ Instalación
+
+1. Clona el repositorio:  
+   ```bash
+   git clone https://github.com/usuario/callsys-pro.git
+   cd callsys-pro
+
+2. npm install
+
+3. Configura las variables de entorno en un archivo .env:
+
+REACT_APP_API_URL=http://localhost:4000
+
+REACT_APP_ENV=development
+
+4. Inicia el servidor de desarrollo:
+npm start
+
+5. USO
+
+http://localhost:3000

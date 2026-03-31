@@ -7,10 +7,25 @@ const PRIORITY_STYLES = {
   Baja:  { badge: 'bg-slate-100 text-slate-600 border-slate-200',  dot: 'bg-slate-400' },
 };
 
+const CHANNELS = [
+  'Teléfono fijo',
+  'Celular',
+  'WhatsApp',
+  'Facebook/Messenger',
+  'Correo electrónico',
+  'Presencial/Visita',
+];
+
 const CHANNEL_ICONS = {
-  Llamada:  <Phone size={14} />,
-  WhatsApp: <span className="text-[11px] font-black">WA</span>,
-  Email:    <span className="text-[11px] font-black">@</span>,
+  'Teléfono fijo':       <Phone size={14} className="text-blue-500" />,
+  'Celular':             <Phone size={14} className="text-emerald-500" />,
+  'WhatsApp':            <span className="text-[11px] font-black text-emerald-600">WA</span>,
+  'Facebook/Messenger':  <span className="text-[11px] font-black text-blue-600">FB</span>,
+  'Correo electrónico':  <span className="text-[11px] font-black text-violet-500">@</span>,
+  'Presencial/Visita':   <span className="text-[11px] font-black text-amber-600">🤝</span>,
+  // legacy values kept for backward compatibility
+  'Llamada':             <Phone size={14} />,
+  'Email':               <span className="text-[11px] font-black">@</span>,
 };
 
 function diffDays(dateStr) {
@@ -23,7 +38,7 @@ function diffDays(dateStr) {
 
 const EMPTY_FORM = {
   clientName: '', agent: '', date: '', time: '', priority: 'Media',
-  channel: 'Llamada', notes: '', originCall: '',
+  channel: 'Teléfono fijo', notes: '', originCall: '',
 };
 
 export default function FollowUpManager({ followUps, onSave, onDelete, onComplete, clients = [] }) {
@@ -138,7 +153,7 @@ export default function FollowUpManager({ followUps, onSave, onDelete, onComplet
               <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Canal</label>
               <select value={form.channel} onChange={e => handleChange('channel', e.target.value)}
                 className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                <option>Llamada</option><option>WhatsApp</option><option>Email</option>
+                {CHANNELS.map(ch => <option key={ch} value={ch}>{ch}</option>)}
               </select>
             </div>
             <div>

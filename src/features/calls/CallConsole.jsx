@@ -1,94 +1,199 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Bell, CheckCircle2, Clock, MessageSquare, Phone, PhoneOff, Save, TrendingUp } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Bell, Building2, CheckCircle2, Mail,
+  MessageSquare, Phone, Save, Users2, X,
+} from 'lucide-react';
 
-const DISPOSITIONS = [
-  { value: 'CONTACTO_EFECTIVO',  label: 'Contacto Efectivo — Interesado',      followUp: false },
-  { value: 'SOLICITA_COTIZACION', label: 'Solicita Cotización Técnica',         followUp: false },
-  { value: 'VOLVER_A_LLAMAR',    label: 'Volver a Llamar (Follow-up)',          followUp: true  },
-  { value: 'DATOS_ERRONEOS',     label: 'Datos Erróneos / Empresa Inexistente', followUp: false },
-  { value: 'NO_CONTESTA',        label: 'No Contesta / Buzón',                 followUp: true  },
+// ─── Canales ──────────────────────────────────────────────────────────────────
+const CHANNELS = [
+  { id: 'telefono',   label: 'Teléfono',  icon: <Phone       size={13} className="text-blue-400"    /> },
+  { id: 'celular',    label: 'Celular',   icon: <Phone       size={13} className="text-emerald-400" /> },
+  { id: 'whatsapp',   label: 'WhatsApp',  icon: <MessageSquare size={13} className="text-green-400" /> },
+  { id: 'facebook',   label: 'Facebook',  icon: <Users2      size={13} className="text-blue-400"    /> },
+  { id: 'email',      label: 'Email',     icon: <Mail        size={13} className="text-violet-400"  /> },
+  { id: 'presencial', label: 'Visita',    icon: <Building2   size={13} className="text-amber-400"   /> },
 ];
 
-function formatTime(seconds) {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${s < 10 ? '0' : ''}${s}`;
-}
+// ─── Tipificación rápida ──────────────────────────────────────────────────────
+const QUICK_TYPES = [
+  { id: 'interesado',     label: 'Contacto Efectivo — Interesado',      followUp: false, accent: '#10b981' },
+  { id: 'solicita_cot',   label: 'Solicita Cotización Técnica',          followUp: false, accent: '#3b82f6' },
+  { id: 'volver_llamar',  label: 'Volver a Llamar (Follow-up)',          followUp: true,  accent: '#f59e0b' },
+  { id: 'en_evaluacion',  label: 'En Evaluación Interna',               followUp: true,  accent: '#8b5cf6' },
+  { id: 'datos_erroneos', label: 'Datos Erróneos / Empresa Inexistente', followUp: false, accent: '#6b7280' },
+  { id: 'no_contesta',    label: 'No Contesta / Buzón',                 followUp: true,  accent: '#6b7280' },
+  { id: 'no_interesa',    label: 'No Le Interesa',                      followUp: false, accent: '#ef4444' },
+  { id: 'cerrado',        label: 'Venta Cerrada ✓',                     followUp: false, accent: '#059669' },
+];
 
-export default function CallConsole({ activeCall, onHangUp, onSave, callHistory = [] }) {
-  const [timer, setTimer]             = useState(0);
-  const [disposition, setDisposition] = useState('');
-  const [notes, setNotes]             = useState('');
-  const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
-  const [followUpDate, setFollowUpDate]         = useState('');
+// ─── Component ────────────────────────────────────────────────────────────────
+export default function CallConsole({ activeCall, callHistory = [], onHangUp, onSave }) {
+  // Pre-fill from activeCall context (launched from a row or fresh)
+  const [clientName,   setClientName]   = useState(activeCall?.companyName  || '');
+  const [contactName,  setContactName]  = useState(activeCall?.contactName  || '');
+  const [phone,        setPhone]        = useState(activeCall?.phoneNumber   || '');
+  const [channel,      setChannel]      = useState(activeCall?.channel       || 'telefono');
+  const [disposition,  setDisposition]  = useState('');
+  const [notes,        setNotes]        = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [duration,     setDuration]     = useState('');
 
-  useEffect(() => {
-    const interval = setInterval(() => setTimer(t => t + 1), 1000);
-    return () => clearInterval(interval);
-  }, []);
+  const selectedType  = QUICK_TYPES.find(t => t.id === disposition);
+  const needsFollowUp = selectedType?.followUp && !followUpDate;
+  const canSave       = clientName.trim() && disposition && !needsFollowUp;
 
-  const selectedDisp = DISPOSITIONS.find(d => d.value === disposition);
-
-  const clientHistory = useMemo(
-    () => callHistory.filter(c => c.companyName === activeCall.companyName).slice(0, 5),
-    [callHistory, activeCall.companyName]
-  );
+  // Last 3 interactions with this client
+  const clientHistory = callHistory
+    .filter(c =>
+      (clientName && c.clientName?.toLowerCase() === clientName.toLowerCase()) ||
+      (activeCall?.clientId && c.clientId === activeCall.clientId)
+    )
+    .slice(0, 3);
 
   const handleSave = () => {
-    if (!disposition) return;
+    if (!canSave) return;
     onSave({
-      duration:          timer,
+      clientId:    activeCall?.clientId || '',
+      clientName,
+      contactName,
+      phone,
+      channel,
       disposition,
       notes,
-      companyName:       activeCall.companyName,
-      contactName:       activeCall.contactName,
-      phoneNumber:       activeCall.phoneNumber,
-      timestamp:         new Date().toISOString(),
-      scheduleFollowUp:  scheduleFollowUp && followUpDate ? { date: followUpDate, clientName: activeCall.companyName } : null,
+      followUpDate,
+      duration,
+      date:  new Date().toISOString().slice(0, 10),
+      time:  new Date().toTimeString().slice(0, 5),
+      agent: activeCall?.agentName || '',
     });
+    onHangUp(); // cierra inmediatamente tras guardar
+  };
+
+  const handleWhatsApp = () => {
+    if (!canSave) return;
+    const num = phone.replace(/\D/g, '');
+    const msg = encodeURIComponent(
+      `Estimado/a ${contactName || clientName}, le contactamos de CallCenter B2B.\n` +
+      (notes ? `\n${notes}\n` : '') +
+      `\nQuedamos atentos. Gracias.`
+    );
+    window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
+    handleSave();
   };
 
   return (
-    <div className="fixed bottom-6 right-6 w-[420px] bg-slate-900 text-white rounded-2xl shadow-2xl border border-slate-700 overflow-hidden z-50"
-         style={{ animation: 'slideUp .25s ease' }}>
-      <style>{`@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
-
-      {/* Header */}
-      <div className="p-4 bg-gradient-to-r from-slate-800 to-slate-900 flex items-center justify-between border-b border-slate-700">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center animate-pulse">
-            <Phone size={18} />
-          </div>
-          <div>
-            <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Llamada en curso</p>
-            <p className="font-bold text-blue-100 leading-tight">{activeCall.contactName}</p>
-            <p className="text-[11px] text-slate-400">{activeCall.companyName}</p>
-          </div>
+    // Panel lateral derecho — no ocupa toda la pantalla
+    <div
+      className="fixed top-0 right-0 bottom-0 z-50 w-[400px] flex flex-col overflow-hidden shadow-2xl"
+      style={{ background: '#0f172a', borderLeft: '1px solid rgba(255,255,255,0.08)' }}
+    >
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        <div>
+          <p className="font-black text-white text-sm">Registrar contacto</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Completa los datos y selecciona el resultado</p>
         </div>
-        <div className="text-right">
-          <div className="text-2xl font-mono font-bold text-emerald-400">{formatTime(timer)}</div>
-          <p className="text-[10px] text-slate-500">{activeCall.phoneNumber}</p>
-        </div>
+        <button type="button" onClick={onHangUp}
+          className="p-2 rounded-xl bg-white/10 text-slate-400 hover:text-white transition-colors">
+          <X size={16} />
+        </button>
       </div>
 
-      <div className="p-4 space-y-4 max-h-[70vh] overflow-y-auto">
+      {/* ── Scrollable body ── */}
+      <div className="flex-1 overflow-y-auto">
 
-        {/* Historial de llamadas del cliente */}
+        {/* Datos del contacto */}
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3">
+            Datos del contacto
+          </p>
+          <div className="space-y-2.5">
+            <div>
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Empresa *
+              </label>
+              <input
+                type="text"
+                value={clientName}
+                onChange={e => setClientName(e.target.value)}
+                placeholder="Nombre de la empresa..."
+                className="w-full rounded-xl px-3 py-2 text-sm outline-none placeholder:text-slate-600"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9' }}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Contacto / Persona
+                </label>
+                <input
+                  type="text"
+                  value={contactName}
+                  onChange={e => setContactName(e.target.value)}
+                  placeholder="Nombre..."
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none placeholder:text-slate-600"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9' }}
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Teléfono / Cuenta
+                </label>
+                <input
+                  type="text"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  placeholder="+51 999..."
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none placeholder:text-slate-600 font-mono"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9' }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Canal */}
+        <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2.5">Canal</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {CHANNELS.map(ch => (
+              <button key={ch.id} type="button" onClick={() => setChannel(ch.id)}
+                className="flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={{
+                  background: channel === ch.id ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.04)',
+                  border: channel === ch.id ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(255,255,255,0.07)',
+                  color: channel === ch.id ? '#f1f5f9' : '#64748b',
+                }}>
+                {ch.icon} {ch.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Historial del cliente */}
         {clientHistory.length > 0 && (
-          <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
-            <p className="text-[10px] text-slate-400 uppercase font-bold mb-2 flex items-center gap-1">
-              <Clock size={10} /> Historial — {activeCall.companyName}
+          <div className="px-5 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">
+              Historial — {clientName}
             </p>
             <div className="space-y-1.5">
               {clientHistory.map((c, i) => (
-                <div key={i} className="flex items-center justify-between text-[11px]">
-                  <span className="text-slate-400">{c.timestamp?.slice(0, 10)}</span>
-                  <span className={`px-2 py-0.5 rounded font-bold ${
-                    c.disposition === 'CONTACTO_EFECTIVO' ? 'bg-emerald-900/50 text-emerald-400' :
-                    c.disposition === 'NO_CONTESTA' ? 'bg-slate-700 text-slate-400' :
-                    'bg-blue-900/50 text-blue-400'
-                  }`}>{c.disposition?.replace(/_/g,' ')}</span>
-                  <span className="text-slate-500 font-mono">{formatTime(c.duration || 0)}</span>
+                <div key={i} className="flex items-center gap-2 text-[11px]">
+                  <span className="text-slate-600 font-mono flex-shrink-0 w-20">{c.date}</span>
+                  <span className="flex-1 truncate font-bold px-2 py-0.5 rounded text-[10px] text-center"
+                    style={{
+                      background: c.disposition === 'solicita_cot' ? '#1d4ed820' :
+                                  c.disposition === 'interesado'    ? '#05966920' :
+                                  c.disposition === 'cerrado'       ? '#05966930' : '#1e293b',
+                      color:      c.disposition === 'solicita_cot' ? '#93c5fd' :
+                                  c.disposition === 'interesado'    ? '#6ee7b7' :
+                                  c.disposition === 'cerrado'       ? '#6ee7b7' : '#94a3b8',
+                    }}>
+                    {QUICK_TYPES.find(t => t.id === c.disposition)?.label?.toUpperCase() ||
+                     c.disposition?.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                  <span className="text-slate-600 font-mono flex-shrink-0">{c.duration ? `${c.duration}m` : ''}</span>
                 </div>
               ))}
             </div>
@@ -96,67 +201,98 @@ export default function CallConsole({ activeCall, onHangUp, onSave, callHistory 
         )}
 
         {/* Tipificación */}
-        <div>
-          <label className="text-[10px] text-slate-400 font-bold mb-2 block uppercase">Tipificación de llamada</label>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2.5">
+            Tipificación de llamada
+          </p>
           <div className="space-y-1.5">
-            {DISPOSITIONS.map(d => (
-              <button key={d.value} type="button" onClick={() => {
-                setDisposition(d.value);
-                setScheduleFollowUp(d.followUp);
-              }}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-medium transition-all border ${
-                  disposition === d.value
-                    ? 'bg-blue-600 border-blue-500 text-white'
-                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                }`}>
-                {d.label}
-                {d.followUp && <span className="ml-2 text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-bold">+ Follow-up</span>}
-              </button>
-            ))}
+            {QUICK_TYPES.map(t => {
+              const isSelected = disposition === t.id;
+              return (
+                <button key={t.id} type="button"
+                  onClick={() => { setDisposition(t.id); if (!t.followUp) setFollowUpDate(''); }}
+                  className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-left transition-all"
+                  style={{
+                    background: isSelected ? `${t.accent}25` : 'rgba(255,255,255,0.04)',
+                    border:     isSelected ? `1px solid ${t.accent}60` : '1px solid rgba(255,255,255,0.07)',
+                    color:      isSelected ? '#f1f5f9' : '#94a3b8',
+                  }}>
+                  <div className="flex items-center gap-2.5">
+                    {isSelected
+                      ? <CheckCircle2 size={14} style={{ color: t.accent, flexShrink: 0 }} />
+                      : <span className="w-3.5 h-3.5 rounded-full border flex-shrink-0"
+                          style={{ borderColor: 'rgba(255,255,255,0.15)' }} />
+                    }
+                    <span className="text-[13px] font-semibold">{t.label}</span>
+                  </div>
+                  {t.followUp && (
+                    <span className="text-[9px] font-black px-1.5 py-0.5 rounded flex-shrink-0"
+                      style={{ background: '#f59e0b20', color: '#fbbf24', border: '1px solid #f59e0b30' }}>
+                      + Follow-up
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {/* Follow-up date */}
+          {selectedType?.followUp && (
+            <div className="mt-3 flex items-center gap-2">
+              <Bell size={12} className="text-amber-400 flex-shrink-0" />
+              <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">Agendar para</label>
+              <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
+                className="flex-1 text-xs rounded-lg px-2 py-1.5 outline-none font-mono"
+                style={{ background: '#1e293b', border: '1px solid rgba(255,255,255,0.15)', color: '#f1f5f9' }} />
+            </div>
+          )}
         </div>
 
-        {/* Follow-up automático */}
-        {scheduleFollowUp && (
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-            <p className="text-[10px] text-amber-400 font-bold uppercase mb-2 flex items-center gap-1">
-              <Bell size={10} /> Programar follow-up automático
-            </p>
-            <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-amber-500" />
-          </div>
-        )}
-
-        {/* Notas */}
-        <div>
-          <label className="text-[10px] text-slate-400 font-bold mb-2 block uppercase">Notas y seguimiento</label>
+        {/* Notas + duración */}
+        <div className="px-5 py-4">
+          <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-2">
+            Notas y seguimiento
+          </p>
           <textarea rows={3} value={notes} onChange={e => setNotes(e.target.value)}
             placeholder="Detalles sobre productos industriales requeridos, volumen, plazos..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-500 resize-none" />
+            className="w-full text-sm rounded-xl px-3 py-2.5 outline-none resize-none placeholder:text-slate-600 mb-2.5"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#e2e8f0' }} />
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex-shrink-0">
+              Duración (min)
+            </label>
+            <input type="number" min="0" value={duration} onChange={e => setDuration(e.target.value)}
+              placeholder="0"
+              className="w-20 text-sm rounded-lg px-2 py-1.5 outline-none font-mono text-center"
+              style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: '#f1f5f9' }} />
+          </div>
         </div>
+      </div>
 
-        {/* Acciones */}
-        <div className="grid grid-cols-2 gap-3">
+      {/* ── Footer actions — fijos al fondo ── */}
+      <div className="flex-shrink-0 px-5 py-4 space-y-2"
+        style={{ borderTop: '1px solid rgba(255,255,255,0.08)', background: '#0f172a' }}>
+
+        <div className="grid grid-cols-2 gap-2">
+          {/* Cancelar — solo cierra */}
           <button type="button" onClick={onHangUp}
-            className="flex items-center justify-center gap-2 py-3 bg-rose-600/10 text-rose-400 hover:bg-rose-600 hover:text-white rounded-xl font-bold text-sm transition-all border border-rose-600/20">
-            <PhoneOff size={16} /> Finalizar
+            className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+            style={{ background: '#7f1d1d40', border: '1px solid #ef444440', color: '#fca5a5' }}>
+            <X size={15} /> Cancelar
           </button>
-          <button type="button" onClick={handleSave} disabled={!disposition}
-            className="flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl font-bold text-sm transition-all">
-            <Save size={16} /> Guardar
+          {/* Guardar — graba y cierra */}
+          <button type="button" onClick={handleSave} disabled={!canSave}
+            className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            style={{ background: canSave ? '#1e40af' : '#1e293b', color: 'white' }}>
+            <Save size={15} /> Guardar
           </button>
         </div>
 
-        {disposition === 'SOLICITA_COTIZACION' && (
-          <button type="button" onClick={() => { handleSave(); }}
-            className="w-full flex items-center justify-center gap-2 py-2.5 bg-emerald-600/15 text-emerald-400 hover:bg-emerald-600/25 rounded-xl font-bold text-xs transition-all border border-emerald-600/20 uppercase tracking-wide">
-            <TrendingUp size={13} /> Crear oportunidad desde esta llamada
-          </button>
-        )}
-
-        <button type="button"
-          className="w-full flex items-center justify-center gap-2 py-2 bg-slate-800/60 text-slate-400 hover:bg-slate-700 rounded-xl font-bold text-xs transition-all border border-slate-700/50 uppercase tracking-wide">
-          <MessageSquare size={13} /> Enviar resumen por WhatsApp
+        {/* Enviar por WhatsApp */}
+        <button type="button" onClick={handleWhatsApp} disabled={!canSave}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+          <MessageSquare size={15} /> Enviar resumen por WhatsApp
         </button>
       </div>
     </div>
