@@ -58,6 +58,23 @@ REACT_APP_ENV=development
 4. Inicia el servidor de desarrollo:
 npm start
 
-5. USO
-
+### 📖 Uso
 http://localhost:3000
+
+### 🤝Contribuciones
+Las contribuciones son bienvenidas. Para colaborar:
+
+Haz un fork del proyecto.
+
+Crea una rama con tu mejora:
+
+bash
+git checkout -b feature/nueva-funcionalidad
+Realiza tus cambios y haz commit:
+
+bash
+git commit -m "Agrega nueva funcionalidad"
+Envía un pull request.
+
+### 📜 Licencia
+Este proyecto está bajo la licencia MIT.
