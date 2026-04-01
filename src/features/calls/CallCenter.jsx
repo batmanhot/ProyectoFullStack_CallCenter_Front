@@ -543,12 +543,6 @@ export default function CallCenter({
                   {/* Actions */}
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-end gap-1">
-                      {/* Iniciar consola rápida */}
-                      <button type="button" onClick={() => launchConsole(item)}
-                        className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-[10px] font-bold transition-colors"
-                        title="Abrir consola de tipificación rápida">
-                        <Phone size={11} /> Contactar
-                      </button>
                       {/* Escalar */}
                       <button type="button" onClick={() => setEscalating(item)}
                         className="flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-[10px] font-bold transition-colors"
@@ -558,7 +552,7 @@ export default function CallCenter({
                       {/* Edit */}
                       <button type="button" onClick={() => openEdit(item)}
                         className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
-                        title="Editar">
+                        title="Editar contacto">
                         <Pencil size={14} />
                       </button>
                       {/* Delete */}

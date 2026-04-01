@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import {
   Activity, Bell, Box, CheckSquare, FileText, GraduationCap,
   LayoutDashboard, LogOut, Menu, MessageSquare, Phone, RotateCcw,
-  Search, Settings, ShieldCheck, Target, Users, X,
+  Search, Settings, ShieldCheck, Target, Users, Wrench, X,
 } from 'lucide-react';
 
 import { DATA } from './data';
@@ -22,6 +22,7 @@ import QualityAudit       from './features/quality/QualityAudit';
 import QuoteGenerator     from './features/quotes/QuoteGenerator';
 import SalesClosure       from './features/sales/SalesClosure';
 import TrainingCenter     from './features/training/TrainingCenter';
+import AppConfig, { DEFAULT_CONFIG } from './features/config/AppConfig';
 
 // ─── SEED DATA — rico para demo comercial ────────────────────────────────────
 const SEED_CAMPAIGNS = [
@@ -119,6 +120,7 @@ const MENU = [
   { id:'training',      label:'Capacitación',        icon:GraduationCap,   group:'Soporte'       },
   { id:'channels',      label:'Canales',             icon:MessageSquare,   group:'Soporte'       },
   { id:'security',      label:'Seguridad',           icon:Settings,        group:'Soporte'       },
+  { id:'config',        label:'Configuración',       icon:Wrench,          group:'Soporte'       },
 ];
 const GROUPS = ['Transversales','Estrategicos','Operativos','Soporte'];
 
@@ -187,7 +189,7 @@ export default function App() {
   const [opportunities,   setOpportunities]   = useLocalStorage('cc_opportunities', SEED_OPPORTUNITIES);
   const [audits,          setAudits]          = useLocalStorage('cc_audits',        SEED_AUDITS);
   const [trainingModules, setTrainingModules] = useLocalStorage('cc_training',      SEED_TRAINING);
-  const [encryptionActive,setEncryptionActive]= useLocalStorage('cc_encryption',    true);
+  const [appConfig,       setAppConfig]       = useLocalStorage('cc_config',         DEFAULT_CONFIG);
   const [securityLogs,    setSecurityLogs]    = useLocalStorage('cc_logs',          SEED_LOGS);
   const [channels,        setChannels]        = useLocalStorage('cc_channels',      SEED_CHANNELS);
   const [followUps,       setFollowUps]       = useLocalStorage('cc_followups',     SEED_FOLLOWUPS);
@@ -262,9 +264,16 @@ export default function App() {
   const advanceStage      = id  => { const ST=['PROSPECCION','CONTACTO','COTIZACION','NEGOCIACION','CIERRE','PERDIDO']; setOpportunities(cur=>cur.map(o=>{ if(o.id!==id) return o; const i=ST.indexOf(o.stage); if(i>=ST.length-2) return o; return {...o,stage:ST[i+1]}; })); audit('Oportunidad avanzada',id,'Oportunidad'); notify('success','Oportunidad avanzada.'); };
 
   // ── Other handlers ────────────────────────────────────────────────────────
-  const saveAudit    = a   => { setAudits(cur=>cur.map(x=>x.id===a.id?a:x)); audit(`Auditoría guardada — score ${a.score}`,a.id,'Seguridad'); notify('success',`Auditoría ${a.id} guardada.`); };
+  const saveAudit    = a   => {
+    setAudits(cur => {
+      const exists = cur.find(x => x.id === a.id);
+      if (exists) return cur.map(x => x.id === a.id ? a : x);
+      return [...cur, a];
+    });
+    audit(`Evaluación guardada — score ${a.score}`, a.id, 'Seguridad');
+    notify('success', `Evaluación ${a.id} guardada.`);
+  };
   const submitAnswer = (mid,ans) => { setTrainingModules(cur=>cur.map(m=>{ if(m.id!==mid) return m; const ok=ans===m.correctAnswer; audit(ok?'Módulo aprobado':'Intento fallido',mid,'Capacitacion'); return {...m,selectedAnswer:ans,status:ok?'Completado':'En curso',feedback:ok?'Respuesta correcta. Módulo aprobado.':'Respuesta incorrecta. Revisa el contenido.'}; })); notify('info','Evaluación procesada.'); };
-  const runAudit     = ()  => { setSecurityLogs(cur=>[{id:`LOG-${String(cur.length+1).padStart(3,'0')}`,module:'Seguridad',event:'Auditoría de Seguridad Ejecutada',user:currentUser?.name||'Admin',role:currentUser?.role||'Administrador',date:ts(),obj:encryptionActive?'AES-256':'REVISION_MANUAL',alert:!encryptionActive},...cur]); notify('success','Auditoría ejecutada.'); };
   const configureChannel = (chId,ep) => { setChannels(cur=>cur.map(ch=>ch.id===chId?{...ch,endpoint:ep,status:'Conectado',enabled:true,latency:'18ms'}:ch)); audit('Canal configurado',chId,'Sistema'); notify('success','Canal configurado.'); };
   const toggleChannel    = chId     => { setChannels(cur=>cur.map(ch=>{ if(ch.id!==chId) return ch; const en=!ch.enabled; return {...ch,enabled:en,status:en?'Conectado':'Desconectado',latency:en?(ch.latency==='--'?'22ms':ch.latency):'--'}; })); audit('Canal actualizado',chId,'Sistema'); notify('info','Canal actualizado.'); };
   const saveFollowUp     = fu => { setFollowUps(cur=>[...cur,fu]); audit('Follow-up programado',fu.clientName,'Follow-up'); notify('success','Follow-up programado.'); };
@@ -296,7 +305,8 @@ export default function App() {
       case 'quality':       return <QualityAudit audits={audits} onSaveAudit={saveAudit}/>;
       case 'training':      return <TrainingCenter modules={trainingModules} onSubmitAnswer={submitAnswer}/>;
       case 'channels':      return <MultichannelConfig channels={channels} apiKey={apiKey} onConfigureChannel={configureChannel} onToggleChannel={toggleChannel} onGenerateApiKey={()=>{ const k=`ccbi-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`; setApiKey(k); audit('API key generada','ccbi-***','Sistema'); notify('success','API key generada.'); }}/>;
-      case 'security':      return <DatabaseSecurity encryptionActive={encryptionActive} logs={securityLogs} onToggleEncryption={()=>{setEncryptionActive(v=>!v);audit('Cifrado modificado','AES-256','Seguridad');notify('info','Cifrado actualizado.');}} onRunAudit={runAudit}/>;
+      case 'security':      return <DatabaseSecurity logs={securityLogs}/>;
+      case 'config':        return <AppConfig config={appConfig} onSave={cfg=>{setAppConfig(cfg); audit('Configuración actualizada','AppConfig','Sistema');}} onNotify={notify}/>;
       default: return null;
     }
   };
