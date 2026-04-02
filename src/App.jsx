@@ -213,10 +213,16 @@ export default function App() {
 
   const navigate = tab => { setActiveTab(tab); setSidebarOpen(false); };
 
-  // ── Follow-up badge ───────────────────────────────────────────────────────
-  const overdueFollowUps = useMemo(()=>
-    followUps.filter(f=>{ if(f.status!=='Pendiente') return false; const d=new Date(f.date); d.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); return d<=t; }).length,
-  [followUps]);
+  // ── Follow-up badge — usa config.notifications.alertThresholdDays ──────────
+  const overdueFollowUps = useMemo(()=>{
+    const threshold = appConfig?.notifications?.alertThresholdDays ?? 1;
+    return followUps.filter(f=>{
+      if(f.status!=='Pendiente') return false;
+      const d=new Date(f.date); d.setHours(0,0,0,0);
+      const t=new Date(); t.setHours(0,0,0,0);
+      return (t-d)/86400000 >= threshold;
+    }).length;
+  },[followUps, appConfig]);
 
   // ── Dashboard stats ───────────────────────────────────────────────────────
   const dashboardStats = useMemo(()=>{
@@ -283,7 +289,19 @@ export default function App() {
     setCallHistory(cur=>isEdit?cur.map(c=>c.id===data.id?data:c):[{...data,id:data.id||`INT-${Date.now()}`},...cur]);
     audit(`Contacto ${isEdit?'actualizado':'registrado'}: ${data.disposition?.replace(/_/g,' ')}`,data.clientName,'Llamada');
     notify('success',isEdit?'Contacto actualizado.':'Contacto registrado.');
-    if(!isEdit&&data.followUpDate){ setFollowUps(cur=>[...cur,{id:`FU-${Date.now()}`,clientName:data.clientName,agent:data.agent||currentUser?.name||'Agente',date:data.followUpDate,time:'',priority:'Media',channel:data.channel==='whatsapp'?'WhatsApp':'Teléfono fijo',notes:data.notes||'Seguimiento generado desde contacto.',status:'Pendiente',createdAt:new Date().toISOString().slice(0,10)}]); audit('Follow-up automático generado',data.clientName,'Follow-up'); }
+    // Auto follow-up respeta config.contacts.autoFollowUp
+    const autoFU = appConfig?.contacts?.autoFollowUp ?? true;
+    if(!isEdit && autoFU && data.followUpDate){
+      setFollowUps(cur=>[...cur,{
+        id:`FU-${Date.now()}`,clientName:data.clientName,
+        agent:data.agent||currentUser?.name||'Agente',
+        date:data.followUpDate,time:'',priority:'Media',
+        channel:data.channel==='whatsapp'?'WhatsApp':'Teléfono fijo',
+        notes:data.notes||'Seguimiento generado desde contacto.',
+        status:'Pendiente',createdAt:new Date().toISOString().slice(0,10),
+      }]);
+      audit('Follow-up automático generado',data.clientName,'Follow-up');
+    }
   };
   const deleteCall = id => { setCallHistory(cur=>cur.filter(c=>c.id!==id)); audit('Contacto eliminado',id,'Llamada',true); };
 
@@ -293,15 +311,15 @@ export default function App() {
   // ── Content router ────────────────────────────────────────────────────────
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':     return <ExecutiveDashboard stats={dashboardStats} followUps={followUps} onRefresh={()=>notify('info','Dashboard actualizado.')} onExport={()=>{audit('Dashboard exportado','PDF','Sistema');notify('success','Exportación preparada.');}}/>;
+      case 'dashboard':     return <ExecutiveDashboard stats={dashboardStats} followUps={followUps} config={appConfig} onRefresh={()=>notify('info','Dashboard actualizado.')} onExport={()=>{audit('Dashboard exportado','PDF','Sistema');notify('success','Exportación preparada.');}}/>;
       case 'crm':           return <CRMView clients={clients} onSaveClient={saveClient} onDeleteClient={deleteClient} onNotify={notify}/>;
       case 'products':      return <ProductManager products={products} onSave={saveProduct} onDelete={deleteProduct} onNotify={notify}/>;
       case 'campaigns':     return <CampaignManager campaigns={campaigns} products={products} onSaveCampaign={saveCampaign} onToggleCampaign={toggleCampaign} onDeleteCampaign={deleteCampaign}/>;
-      case 'calls':         return <CallCenter callHistory={callHistory} clients={clients} onSaveCall={saveCall} onDeleteCall={deleteCall} onNotify={notify} onNavigate={navigate} currentUser={currentUser}/>;
+      case 'calls':         return <CallCenter callHistory={callHistory} clients={clients} onSaveCall={saveCall} onDeleteCall={deleteCall} onNotify={notify} onNavigate={navigate} currentUser={currentUser} config={appConfig}/>;
       case 'followups':     return <FollowUpManager followUps={followUps} clients={clients} onSave={saveFollowUp} onDelete={deleteFollowUp} onComplete={completeFollowUp}/>;
       case 'opportunities': return <OpportunityPipeline opportunities={opportunities} onSaveOpportunity={saveOpportunity} onDeleteOpportunity={deleteOpportunity} onAdvanceStage={advanceStage} clients={clients} products={products} onNotify={notify}/>;
-      case 'quotes':        return <QuoteGenerator clients={clients} products={products} quotes={quotes} onSaveQuote={saveQuote} onDeleteQuote={deleteQuote} onNotify={notify} onAudit={(ev,obj)=>audit(ev,obj,'Cotizacion')} currentUser={currentUser}/>;
-      case 'closure':       return <SalesClosure quotes={quotes} userRole={currentUser.role} onApprove={id=>updateQuoteStatus(id,'APROBADA')} onReject={id=>updateQuoteStatus(id,'RECHAZADA')}/>;
+      case 'quotes':        return <QuoteGenerator clients={clients} products={products} quotes={quotes} onSaveQuote={saveQuote} onDeleteQuote={deleteQuote} onNotify={notify} onAudit={(ev,obj)=>audit(ev,obj,'Cotizacion')} currentUser={currentUser} config={appConfig}/>;
+      case 'closure':       return <SalesClosure quotes={quotes} userRole={currentUser.role} onApprove={id=>updateQuoteStatus(id,'APROBADA')} onReject={id=>updateQuoteStatus(id,'RECHAZADA')} config={appConfig}/>;
       case 'quality':       return <QualityAudit audits={audits} onSaveAudit={saveAudit}/>;
       case 'training':      return <TrainingCenter modules={trainingModules} onSubmitAnswer={submitAnswer}/>;
       case 'channels':      return <MultichannelConfig channels={channels} apiKey={apiKey} onConfigureChannel={configureChannel} onToggleChannel={toggleChannel} onGenerateApiKey={()=>{ const k=`ccbi-${Math.random().toString(36).slice(2,8)}-${Math.random().toString(36).slice(2,8)}`; setApiKey(k); audit('API key generada','ccbi-***','Sistema'); notify('success','API key generada.'); }}/>;
@@ -330,10 +348,10 @@ export default function App() {
           </div>
           <div className="min-w-0">
             <h1 className="font-black text-white text-base leading-none tracking-tight">
-              CallSys<span style={{ color:'#f59e0b' }}>PRO</span>
+              {(appConfig?.company?.name || 'CallSysPRO').replace(/\s+B2B.*$/,'')}<span style={{ color:'#f59e0b' }}>PRO</span>
             </h1>
             <p className="text-[9px] font-bold uppercase tracking-[0.18em] mt-0.5" style={{ color:'rgba(148,163,184,0.7)' }}>
-              Centro de Contactos B2B
+              {appConfig?.company?.tagline || 'Centro de Contactos B2B'}
             </p>
           </div>
           {/* Close button — mobile only */}

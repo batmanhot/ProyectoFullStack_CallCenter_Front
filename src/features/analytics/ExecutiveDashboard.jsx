@@ -89,12 +89,19 @@ function KpiCard({ icon, label, value, prev, up, formula, accent, category }) {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-export default function ExecutiveDashboard({ stats, followUps=[], onRefresh, onExport }) {
+export default function ExecutiveDashboard({ stats, followUps=[], config={}, onRefresh, onExport }) {
   const [period, setPeriod] = useState('Este mes');
 
+  const alertThreshold = config?.notifications?.alertThresholdDays ?? 1;
+
   const overdueFollowUps = useMemo(()=>
-    followUps.filter(f=>{ if(f.status!=='Pendiente') return false; const d=new Date(f.date); d.setHours(0,0,0,0); const t=new Date(); t.setHours(0,0,0,0); return d<=t; }).length,
-  [followUps]);
+    followUps.filter(f=>{
+      if(f.status!=='Pendiente') return false;
+      const d=new Date(f.date); d.setHours(0,0,0,0);
+      const t=new Date();       t.setHours(0,0,0,0);
+      return (t-d)/86400000 >= alertThreshold;
+    }).length,
+  [followUps, alertThreshold]);
 
   const productPie = useMemo(()=>
     (stats.productLines||[]).map((l,i)=>({...l,fill:PRODUCT_COLORS[i%PRODUCT_COLORS.length]})),

@@ -19,8 +19,10 @@ Construida con **React** y **TailwindCSS**, ofrece una interfaz moderna, ágil y
 ## 📸 Capturas de pantalla
 
 > Inserta aquí tus capturas de pantalla para mostrar la interfaz y funcionalidades:  
-- ![Placeholder Screenshot 1](ruta/a/imagen1.png)  
-- ![Placeholder Screenshot 2](ruta/a/imagen2.png)  
+![alt text](./img/image.png)
+<br>
+<br>
+![alt text](./img/image-1.png)
 
 ---
 
@@ -51,9 +53,8 @@ Antes de comenzar, asegúrate de tener instalado:
 
 3. Configura las variables de entorno en un archivo .env:
 
-REACT_APP_API_URL=http://localhost:4000
-
-REACT_APP_ENV=development
+   REACT_APP_API_URL=http://localhost:4000\
+   REACT_APP_ENV=development
 
 4. Inicia el servidor de desarrollo:
 npm start
@@ -62,19 +63,20 @@ npm start
 http://localhost:3000
 
 ### 🤝Contribuciones
-Las contribuciones son bienvenidas. Para colaborar:
+Las contribuciones son bienvenidas. Para colaborar:\
+Haz un fork del proyecto.\
 
-Haz un fork del proyecto.
-
-Crea una rama con tu mejora:
-
-bash
+Crea una rama con tu mejora:\
+```bash
 git checkout -b feature/nueva-funcionalidad
+```
+
 Realiza tus cambios y haz commit:
 
-bash
+```bash
 git commit -m "Agrega nueva funcionalidad"
 Envía un pull request.
+```
 
 ### 📜 Licencia
 Este proyecto está bajo la licencia MIT.

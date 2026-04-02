@@ -103,6 +103,7 @@ function QuoteFormModal({ form, editingId, clients, products, onClose, onSaveDra
 
             <div className="space-y-2">
               {form.items.map((it, idx) => {
+                const lineTotal = Number(it.quantity || 0) * Number(it.price || 0);
                 return (
                   <div key={idx} className="grid grid-cols-[1fr,72px,88px,32px] gap-2 items-center bg-slate-50 rounded-xl px-2 py-2">
                     <select
@@ -264,8 +265,17 @@ function QuoteFormModal({ form, editingId, clients, products, onClose, onSaveDra
 }
 
 // ─── PDF Preview Modal ────────────────────────────────────────────────────────
-function QuotePDF({ quote, client, products, onClose, onPrint }) {
+function QuotePDF({ quote, client, products, config, onClose, onPrint }) {
   const printRef = useRef();
+  const co = config?.company || {};
+  const qt = config?.quotes  || {};
+
+  const companyName    = co.name     || 'CallCenter B2B';
+  const companyTagline = co.tagline  || 'Ecosistema Integral de Ventas Industriales';
+  const companyEmail   = co.email    || 'contacto@callcenter.pe';
+  const currency       = co.currency || 'USD';
+  const validityDays   = qt.validityDays  ?? 30;
+  const footerNote     = qt.footerNote    || 'Precios sujetos a variación. Validez según fecha indicada.';
 
   const items = (quote.items || []).map(it => ({
     ...it,
@@ -387,8 +397,8 @@ function QuotePDF({ quote, client, products, onClose, onPrint }) {
               <div style={S.logoWrap}>
                 <div style={S.logo}>CC</div>
                 <div>
-                  <div style={S.coName}>CallCenter B2B</div>
-                  <div style={S.coSub}>Ecosistema Integral de Ventas Industriales</div>
+                  <div style={S.coName}>{companyName}</div>
+                  <div style={S.coSub}>{companyTagline}</div>
                 </div>
               </div>
               <div>
@@ -413,8 +423,8 @@ function QuotePDF({ quote, client, products, onClose, onPrint }) {
               <div style={S.infoBox}>
                 <div style={S.infoLbl}>Condiciones comerciales</div>
                 <div style={S.infoSub}>
-                  <div style={{ marginBottom: 4 }}>Moneda: <strong>USD</strong></div>
-                  <div style={{ marginBottom: 4 }}>Validez: <strong>30 días</strong></div>
+                  <div style={{ marginBottom: 4 }}>Moneda: <strong>{currency}</strong></div>
+                  <div style={{ marginBottom: 4 }}>Validez: <strong>{validityDays} días</strong></div>
                   <div>Forma de pago: <strong>Por acordar</strong></div>
                 </div>
               </div>
@@ -470,17 +480,26 @@ function QuotePDF({ quote, client, products, onClose, onPrint }) {
             </div>
 
             {/* Notes */}
-            {quote.notes && (
+            {(quote.notes || footerNote) && (
               <div style={S.notesBox}>
-                <div style={S.notesLbl}>Notas adicionales</div>
-                <div style={S.notesVal}>{quote.notes}</div>
+                {quote.notes && (
+                  <>
+                    <div style={S.notesLbl}>Notas adicionales</div>
+                    <div style={S.notesVal}>{quote.notes}</div>
+                  </>
+                )}
+                {footerNote && (
+                  <div style={{ ...S.notesVal, marginTop: quote.notes ? 8 : 0, color: '#94a3b8', fontSize: 11 }}>
+                    {footerNote}
+                  </div>
+                )}
               </div>
             )}
 
             {/* Footer */}
             <div style={S.footer}>
-              <div>Este documento es una propuesta comercial generada por el sistema CallCenter B2B · Ecosistema Integral de Ventas Industriales</div>
-              <div>Para consultas: contacto@callcenter.pe · Generado: {new Date().toLocaleString('es-PE')}</div>
+              <div>Este documento es una propuesta comercial generada por {companyName} · {companyTagline}</div>
+              <div>Para consultas: {companyEmail} · Generado: {new Date().toLocaleString(co.locale || 'es-PE')}</div>
             </div>
           </div>
         </div>
@@ -490,12 +509,19 @@ function QuotePDF({ quote, client, products, onClose, onPrint }) {
 }
 
 // ─── Send Modal ───────────────────────────────────────────────────────────────
-function SendModal({ quote, client, onSend, onClose }) {
+function SendModal({ quote, client, config, onSend, onClose }) {
+  const co = config?.company   || {};
+  const wa = config?.whatsapp  || {};
+  const companyName  = co.name  || 'CallCenter B2B';
+  const greeting     = wa.defaultGreeting || 'Estimado/a cliente, le contactamos de ';
+  const signoff      = wa.defaultSignoff  || 'Quedamos atentos. Gracias.';
+  const bizPhone     = wa.businessPhone   || '';
+
   const [channel, setChannel] = useState('email');
-  const [email,   setEmail]   = useState(client?.email || '');
-  const [phone,   setPhone]   = useState(client?.phone || '');
+  const [email,   setEmail]   = useState(client?.email || co.email || '');
+  const [phone,   setPhone]   = useState(client?.phone || bizPhone);
   const [message, setMessage] = useState(
-    `Estimado/a ${client?.contact || 'cliente'},\n\nAdjunto encontrará la cotización ${quote.id} por un total de $${Number(quote.total).toLocaleString()} USD.\n\nQuedamos atentos a sus consultas.\n\nSaludos,\nEquipo CallCenter B2B`
+    `${greeting}${companyName}.\n\nAdjunto encontrará la cotización ${quote.id} por un total de $${Number(quote.total).toLocaleString()} ${co.currency||'USD'}.\n\n${signoff}\n\nSaludos,\nEquipo ${companyName}`
   );
 
   const handleSend = () => {
@@ -577,8 +603,11 @@ function SendModal({ quote, client, onSend, onClose }) {
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export default function QuoteGenerator({ clients, products, quotes, onSaveQuote, onDeleteQuote, onNotify, onAudit }) {
-  const [form,      setForm]      = useState(EMPTY_FORM);
+export default function QuoteGenerator({ clients, products, quotes, onSaveQuote, onDeleteQuote, onNotify, onAudit, config }) {
+  const defaultDiscount = config?.quotes?.defaultDiscount ?? 0;
+  const EMPTY_FORM_CFG  = { id: '', clientId: '', items: [EMPTY_ITEM()], discount: defaultDiscount, notes: '' };
+
+  const [form,      setForm]      = useState(EMPTY_FORM_CFG);
   const [editingId, setEditingId] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [previewQ,  setPreviewQ]  = useState(null);
@@ -602,7 +631,7 @@ export default function QuoteGenerator({ clients, products, quotes, onSaveQuote,
 
   // ── Modal open/close ──
   const openNew = () => {
-    setForm(EMPTY_FORM);
+    setForm({ ...EMPTY_FORM_CFG, discount: defaultDiscount });
     setEditingId('');
     setShowModal(true);
   };
@@ -828,6 +857,7 @@ export default function QuoteGenerator({ clients, products, quotes, onSaveQuote,
           quote={previewQ}
           client={clientOf(previewQ)}
           products={products}
+          config={config}
           onClose={() => setPreviewQ(null)}
           onPrint={() => handlePrint(previewQ)}
         />
@@ -837,6 +867,7 @@ export default function QuoteGenerator({ clients, products, quotes, onSaveQuote,
         <SendModal
           quote={sendQ}
           client={clientOf(sendQ)}
+          config={config}
           onSend={data => handleSend(sendQ, data)}
           onClose={() => setSendQ(null)}
         />

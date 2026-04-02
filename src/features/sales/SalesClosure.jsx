@@ -23,7 +23,11 @@ function AgingBadge({ days }) {
   );
 }
 
-export default function SalesClosure({ quotes, onApprove, onReject, userRole = 'Supervisor' }) {
+export default function SalesClosure({ quotes, onApprove, onReject, userRole = 'Supervisor', config = {} }) {
+  const requireApproval    = config?.quotes?.requireApproval    ?? true;
+  const approvalThreshold  = config?.quotes?.approvalThreshold  ?? 10000;
+  const currency           = config?.company?.currency          || 'USD';
+
   const approvals  = quotes.filter(q => q.status === 'PENDIENTE_APROBACION');
   const approved   = quotes.filter(q => q.status === 'APROBADA');
   const rejected   = quotes.filter(q => q.status === 'RECHAZADA');
@@ -32,14 +36,20 @@ export default function SalesClosure({ quotes, onApprove, onReject, userRole = '
   const totalApproved = approved.reduce((s, q) => s + q.total, 0);
   const urgentCount   = approvals.filter(q => agingDays(q.updatedAt) >= 5).length;
 
-  const isSupervisor = userRole === 'Supervisor';
+  // Si requireApproval está desactivado en config, solo Admin/Supervisor pueden operar
+  const isSupervisor = userRole === 'Supervisor' || userRole === 'Administrador';
+  const canApprove   = isSupervisor && requireApproval;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Cierre de Ventas y Aprobaciones</h2>
-          <p className="text-slate-500 text-sm">Flujo de aprobación institucional — solo supervisores pueden aprobar o rechazar.</p>
+          <p className="text-slate-500 text-sm">
+            {requireApproval
+              ? `Flujo de aprobación — cotizaciones sobre ${currency} ${approvalThreshold.toLocaleString()} requieren supervisión.`
+              : 'Aprobación automática activa — las cotizaciones se procesan sin revisión manual.'}
+          </p>
         </div>
         <div className="flex gap-3">
           {urgentCount > 0 && (
@@ -74,9 +84,14 @@ export default function SalesClosure({ quotes, onApprove, onReject, userRole = '
         ))}
       </div>
 
-      {!isSupervisor && (
+      {!isSupervisor && requireApproval && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 font-medium flex items-center gap-2">
-          <FileCheck size={16} /> Solo supervisores pueden aprobar o rechazar cotizaciones.
+          <FileCheck size={16} /> Solo supervisores y administradores pueden aprobar o rechazar cotizaciones.
+        </div>
+      )}
+      {!requireApproval && (
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-800 flex items-center gap-2">
+          <CheckCircle2 size={16} className="text-blue-600"/> Aprobación automática activada en Configuración. Las cotizaciones se aprueban sin revisión manual.
         </div>
       )}
 
@@ -114,15 +129,18 @@ export default function SalesClosure({ quotes, onApprove, onReject, userRole = '
                     )}
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
+                    {approvalThreshold > 0 && item.total < approvalThreshold && (
+                      <span className="text-[10px] text-slate-400 italic">Bajo umbral config.</span>
+                    )}
                     <button type="button"
-                      onClick={() => isSupervisor && onReject(item.id)}
-                      disabled={!isSupervisor}
+                      onClick={() => canApprove && onReject(item.id)}
+                      disabled={!canApprove}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 text-rose-600 border border-rose-200 hover:bg-rose-50 rounded-xl font-bold text-sm transition-all disabled:opacity-40">
                       <XCircle size={18} /> Rechazar
                     </button>
                     <button type="button"
-                      onClick={() => isSupervisor && onApprove(item.id)}
-                      disabled={!isSupervisor}
+                      onClick={() => canApprove && onApprove(item.id)}
+                      disabled={!canApprove}
                       className="flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-md disabled:opacity-40">
                       <CheckCircle2 size={18} /> Aprobar
                     </button>

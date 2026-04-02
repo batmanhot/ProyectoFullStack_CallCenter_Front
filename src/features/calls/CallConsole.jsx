@@ -27,12 +27,12 @@ const QUICK_TYPES = [
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────
-export default function CallConsole({ activeCall, callHistory = [], onHangUp, onSave }) {
+export default function CallConsole({ activeCall, callHistory = [], onHangUp, onSave, config }) {
   // Pre-fill from activeCall context (launched from a row or fresh)
   const [clientName,   setClientName]   = useState(activeCall?.companyName  || '');
   const [contactName,  setContactName]  = useState(activeCall?.contactName  || '');
   const [phone,        setPhone]        = useState(activeCall?.phoneNumber   || '');
-  const [channel,      setChannel]      = useState(activeCall?.channel       || 'telefono');
+  const [channel,      setChannel]      = useState(activeCall?.channel       || config?.contacts?.defaultChannel || 'telefono');
   const [disposition,  setDisposition]  = useState('');
   const [notes,        setNotes]        = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -71,11 +71,14 @@ export default function CallConsole({ activeCall, callHistory = [], onHangUp, on
 
   const handleWhatsApp = () => {
     if (!canSave) return;
-    const num = phone.replace(/\D/g, '');
+    const num      = phone.replace(/\D/g, '');
+    const greeting = config?.whatsapp?.defaultGreeting || 'Estimado/a cliente, le contactamos de ';
+    const signoff  = config?.whatsapp?.defaultSignoff  || 'Quedamos atentos. Gracias.';
+    const coName   = config?.company?.name             || 'CallCenter B2B';
     const msg = encodeURIComponent(
-      `Estimado/a ${contactName || clientName}, le contactamos de CallCenter B2B.\n` +
+      `${greeting}${coName}.\n` +
       (notes ? `\n${notes}\n` : '') +
-      `\nQuedamos atentos. Gracias.`
+      `\n${signoff}`
     );
     window.open(`https://wa.me/${num}?text=${msg}`, '_blank');
     handleSave();

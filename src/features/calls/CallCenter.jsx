@@ -272,6 +272,7 @@ export default function CallCenter({
   onNotify,
   onNavigate,
   currentUser,
+  config = {},
 }) {
   const [showModal,     setShowModal]     = useState(false);
   const [editingId,     setEditingId]     = useState('');
@@ -597,10 +598,10 @@ export default function CallCenter({
         <CallConsole
           activeCall={activeConsole}
           callHistory={callHistory}
+          config={config}
           onHangUp={() => setActiveConsole(null)}
           onSave={(data, isEdit) => {
             onSaveCall(data, isEdit);
-            // No cierra automáticamente — el agente decide con "Finalizar"
           }}
         />
       )}
