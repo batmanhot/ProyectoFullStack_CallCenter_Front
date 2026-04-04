@@ -269,8 +269,12 @@ function ContactsDrawer({ drawer, showCtForm, ctForm, onClose, onAddContact, onR
                 </div>
                 <button
                   type="button"
-                  onClick={() => onRemoveContact(drawer.id, ct.id)}
+                  onClick={() => {
+                    if (window.confirm(`¿Eliminar el contacto "${ct.name}"?`))
+                      onRemoveContact(drawer.id, ct.id);
+                  }}
                   className="text-slate-300 hover:text-rose-400 transition-colors flex-shrink-0"
+                  title="Eliminar contacto"
                 >
                   <X size={14} />
                 </button>
@@ -531,7 +535,10 @@ export default function CRMView({ clients, onSaveClient, onDeleteClient, onNotif
                       {/* Delete */}
                       <button
                         type="button"
-                        onClick={() => onDeleteClient(client.id)}
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la empresa "${client.name}"?\nSe eliminarán también sus cotizaciones asociadas. Esta acción no se puede deshacer.`))
+                            onDeleteClient(client.id);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                         title="Eliminar empresa"
                       >

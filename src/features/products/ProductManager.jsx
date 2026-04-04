@@ -371,7 +371,10 @@ export default function ProductManager({ products, onSave, onDelete, onNotify })
                     </button>
                     <button
                       type="button"
-                      onClick={() => onDelete(p.id)}
+                      onClick={() => {
+                        if (window.confirm(`¿Eliminar el producto "${p.name}"?\nEsta acción no se puede deshacer.`))
+                          onDelete(p.id);
+                      }}
                       className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                       title="Eliminar producto"
                     >

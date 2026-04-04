@@ -425,7 +425,10 @@ export default function CampaignManager({ campaigns, products, onSaveCampaign, o
                       {/* Delete */}
                       <button
                         type="button"
-                        onClick={() => onDeleteCampaign(camp.id)}
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la campaña "${camp.name}"?\nEsta acción no se puede deshacer.`))
+                            onDeleteCampaign(camp.id);
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                         title="Eliminar campaña"
                       >

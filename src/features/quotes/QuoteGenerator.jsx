@@ -820,8 +820,13 @@ export default function QuoteGenerator({ clients, products, quotes, onSaveQuote,
                       {/* Eliminar */}
                       <button
                         type="button"
-                        title="Eliminar"
-                        onClick={() => { onDeleteQuote(q.id); onAudit?.(`Cotización eliminada: ${q.id}`, q.id); }}
+                        title="Eliminar cotización"
+                        onClick={() => {
+                          if (window.confirm(`¿Eliminar la cotización ${q.id} de "${q.client}"?\nEsta acción no se puede deshacer.`)) {
+                            onDeleteQuote(q.id);
+                            onAudit?.(`Cotización eliminada: ${q.id}`, q.id);
+                          }
+                        }}
                         className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
                       >
                         <Trash2 size={14} />

@@ -302,8 +302,13 @@ export default function OpportunityPipeline({
                     className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-blue-600 hover:border-blue-200 transition-colors">
                     <Pencil size={14} />
                   </button>
-                  <button type="button" onClick={() => onDeleteOpportunity(opp.id)}
-                    className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors">
+                  <button type="button"
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar la oportunidad de "${opp.clientName}"?\nEsta acción no se puede deshacer.`))
+                        onDeleteOpportunity(opp.id);
+                    }}
+                    className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors"
+                    title="Eliminar oportunidad">
                     <Trash2 size={14} />
                   </button>
                 </div>

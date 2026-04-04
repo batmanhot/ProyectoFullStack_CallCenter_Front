@@ -238,8 +238,13 @@ export default function FollowUpManager({ followUps, onSave, onDelete, onComplet
                       <CheckCircle2 size={13} /> Completar
                     </button>
                   )}
-                  <button type="button" onClick={() => onDelete(fu.id)}
-                    className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors">
+                  <button type="button"
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar el follow-up de "${fu.clientName}"?\nEsta acción no se puede deshacer.`))
+                        onDelete(fu.id);
+                    }}
+                    className="p-2 border border-slate-200 rounded-xl text-slate-400 hover:text-rose-500 hover:border-rose-200 transition-colors"
+                    title="Eliminar follow-up">
                     <Trash2 size={14} />
                   </button>
                 </div>
